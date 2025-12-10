@@ -1,6 +1,0 @@
-<AssignMessage name="AssignResponse">
-  <Set>
-    <Payload>Hello from HelloWorldDemo</Payload>
-  </Set>
-  <AssignTo type="response"/>
-</AssignMessage>
