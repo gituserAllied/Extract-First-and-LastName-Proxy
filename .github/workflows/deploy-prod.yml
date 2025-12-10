@@ -1,0 +1,74 @@
+name: ✅ Approved Production Deployment
+
+on:
+  workflow_dispatch:
+    inputs:
+      proxy_name:
+        description: "Enter Apigee Proxy Name (example: REVERSE-proxy)"
+        required: true
+        type: string
+
+      environment:
+        description: "Select Environment"
+        required: true
+        type: choice
+        options:
+          - eval
+          - prod1
+          - prod2
+
+jobs:
+  deploy:
+    name: 🚀 Deploy to PROD with Approval
+    runs-on: ubuntu-latest
+
+    # ✅ THIS ENABLES MANUAL APPROVAL
+    environment: prod
+
+    steps:
+
+      # ✅ STEP 1: CHECKOUT REPO
+      - name: Checkout Repository
+        uses: actions/checkout@v3
+
+      # ✅ STEP 2: AUTH → GCP SERVICE ACCOUNT
+      - name: Authenticate Service Account
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+
+      # ✅ STEP 3: SETUP GCLOUD
+      - name: Setup Google Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+        with:
+          project_id: ${{ secrets.GCP_PROJECT_ID }}
+
+      # ✅ STEP 4: INSTALL APIGEE CLI ✅ FIXED
+      - name: Install Apigee CLI
+        run: |
+          curl -L https://raw.githubusercontent.com/apigee/apigeecli/main/downloadLatest.sh | bash
+          sudo cp $HOME/.apigeecli/bin/apigeecli /usr/local/bin/apigeecli
+          sudo chmod +x /usr/local/bin/apigeecli
+          apigeecli --version || apigeecli help
+
+      # ✅ STEP 5: CREATE + DEPLOY SELECTED PROXY ✅ FIXED
+      - name: Deploy Selected Proxy to Selected Environment
+        run: |
+          echo "======================================"
+          echo "Deploying Proxy: ${{ github.event.inputs.proxy_name }}"
+          echo "Environment:     ${{ github.event.inputs.environment }}"
+          echo "Org:             ${{ secrets.APIGEE_ORG }}"
+          echo "======================================"
+
+          TOKEN=$(gcloud auth print-access-token)
+
+          apigeecli apis create bundle \
+            --name "${{ github.event.inputs.proxy_name }}" \
+            --proxy-folder "apiproxies/${{ github.event.inputs.proxy_name }}/apiproxy" \
+            --org "${{ secrets.APIGEE_ORG }}" \
+            --env "${{ github.event.inputs.environment }}" \
+            --token "$TOKEN" \
+            --ovr \
+            --wait
+
+          echo "✅ PRODUCTION DEPLOYMENT SUCCESSFUL"

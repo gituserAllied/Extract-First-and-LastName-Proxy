@@ -1,0 +1,105 @@
+name: ✅ Approved Production SharedFlow Deployment
+
+on:
+  workflow_dispatch:
+    inputs:
+      sharedflow_name:
+        description: "Enter Apigee Shared Flow Name (example: STF_Message-Logging)"
+        required: true
+        type: string
+
+      deploy_eval:
+        description: "eval"
+        required: false
+        type: boolean
+
+      deploy_prod1:
+        description: "prod01"
+        required: false
+        type: boolean
+
+      deploy_prod2:
+        description: "prod02"
+        required: false
+        type: boolean
+
+jobs:
+  deploy:
+    name: 🚀 Deploy SharedFlow to Selected Environments
+    runs-on: ubuntu-latest
+
+    # ✅ Manual approval gate
+    environment: prod
+
+    steps:
+
+      # ✅ STEP 1: CHECKOUT REPO
+      - name: Checkout Repository
+        uses: actions/checkout@v3
+
+      # ✅ STEP 2: AUTH → GCP SERVICE ACCOUNT
+      - name: Authenticate Service Account
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+
+      # ✅ STEP 3: SETUP GCLOUD
+      - name: Setup Google Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+        with:
+          project_id: ${{ secrets.GCP_PROJECT_ID }}
+
+      # ✅ STEP 4: INSTALL APIGEE CLI (V2)
+      - name: Install Apigee CLI
+        run: |
+          curl -L https://raw.githubusercontent.com/apigee/apigeecli/main/downloadLatest.sh | bash
+          sudo cp $HOME/.apigeecli/bin/apigeecli /usr/local/bin/apigeecli
+          sudo chmod +x /usr/local/bin/apigeecli
+          apigeecli --version || apigeecli help
+
+      # ✅ STEP 5: DEPLOY TO SELECTED ENVIRONMENTS (FIXED FLAG)
+      - name: Deploy SharedFlow to Selected Environments
+        run: |
+          TOKEN=$(gcloud auth print-access-token)
+
+          echo "Shared Flow: ${{ github.event.inputs.sharedflow_name }}"
+          echo "Org:         ${{ secrets.APIGEE_ORG }}"
+          echo "======================================"
+
+          if [ "${{ github.event.inputs.deploy_eval }}" = "true" ]; then
+            echo "🚀 Deploying to EVAL..."
+            apigeecli sharedflows create bundle \
+              -n "${{ github.event.inputs.sharedflow_name }}" \
+              -f "sharedflows/${{ github.event.inputs.sharedflow_name }}/sharedflowbundle" \
+              -o "${{ secrets.APIGEE_ORG }}" \
+              -e "eval" \
+              -t "$TOKEN" \
+              --ovr \
+              --wait
+          fi
+
+          if [ "${{ github.event.inputs.deploy_prod1 }}" = "true" ]; then
+            echo "🚀 Deploying to PROD1..."
+            apigeecli sharedflows create bundle \
+              -n "${{ github.event.inputs.sharedflow_name }}" \
+              -f "sharedflows/${{ github.event.inputs.sharedflow_name }}/sharedflowbundle" \
+              -o "${{ secrets.APIGEE_ORG }}" \
+              -e "prod1" \
+              -t "$TOKEN" \
+              --ovr \
+              --wait
+          fi
+
+          if [ "${{ github.event.inputs.deploy_prod2 }}" = "true" ]; then
+            echo "🚀 Deploying to PROD2..."
+            apigeecli sharedflows create bundle \
+              -n "${{ github.event.inputs.sharedflow_name }}" \
+              -f "sharedflows/${{ github.event.inputs.sharedflow_name }}/sharedflowbundle" \
+              -o "${{ secrets.APIGEE_ORG }}" \
+              -e "prod2" \
+              -t "$TOKEN" \
+              --ovr \
+              --wait
+          fi
+
+          echo "✅ SELECTED SHARED FLOW DEPLOYMENTS COMPLETED"
