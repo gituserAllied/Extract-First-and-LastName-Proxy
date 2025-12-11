@@ -33,7 +33,7 @@ jobs:
         with:
           credentials_json: ${{ secrets.GCP_SA_KEY }}
 
-      # ✅ STEP 3: SETUP GCLOUD
+      # ✅ STEP 3: SETUP gcloud
       - name: Setup Google Cloud SDK
         uses: google-github-actions/setup-gcloud@v2
         with:
